@@ -423,6 +423,33 @@
       </div>
 
       <div class="panel">
+        <div class="panel-h"><span>Guardado en línea</span><span id="nubeEstado">sin conectar</span></div>
+        <div class="exp">
+          <p id="nubeInfo">Conecta una base de datos gratuita de Supabase y tus actividades se guardarán en internet: podrás abrirlas desde cualquier ordenador o móvil.</p>
+          <div class="field">
+            <label for="fNubeUrl">URL del proyecto</label>
+            <input type="text" id="fNubeUrl" placeholder="https://xxxx.supabase.co" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="fNubeKey">Clave pública (anon)</label>
+            <input type="password" id="fNubeKey" placeholder="eyJhbGciOi…" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="fNubeCod">Código de tu estudio</label>
+            <input type="text" id="fNubeCod" placeholder="planta-madrid" spellcheck="false">
+          </div>
+          <label class="check">
+            <input type="checkbox" id="fNubeAuto" checked>
+            <span>Subir los cambios automáticamente mientras mido.</span>
+          </label>
+          <button class="btn btn-ses" id="btnNubeConectar">Conectar y comprobar</button>
+          <button class="btn" id="btnNubeSubir">Subir ahora</button>
+          <button class="btn" id="btnNubeBajar">Traer de la nube</button>
+          <p>El mismo código en otro dispositivo abre los mismos datos. Al traer, lo de la nube y lo de aquí se combinan sin perder tomas.</p>
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="panel-h"><span>Informe</span></div>
         <div class="exp">
           <button class="btn btn-xlsx" id="btnXlsx">Descargar informe Excel</button>
@@ -557,12 +584,12 @@
       <div class="panel">
         <div class="panel-h"><span>Guardar y recuperar</span></div>
         <div class="exp">
-          <p>Guardar conserva todas tus actividades con sus pasos y sus tomas, y te descarga una copia de seguridad.</p>
+          <p>Todo se guarda solo según cronometras y se conserva al cerrar la pestaña. Este botón es solo para confirmarlo.</p>
           <button class="btn btn-save" id="btnSave2" style="width:100%">Guardar todo</button>
+          <button class="btn" id="btnDescargar">Descargar copia .json</button>
           <button class="btn" id="btnRestaurar">Restaurar desde una copia</button>
           <input type="file" id="fileRest" accept=".json,application/json" style="display:none">
-          <p>La copia es un archivo <b>.json</b>. Restaurarlo repone actividades y tomas tal y como estaban.</p>
-          <p><b>Para pasar de un ordenador a otro:</b> guarda aquí, lleva el .json (correo, USB, Drive) y restauralo en el otro equipo. Los datos viven en cada dispositivo, no se sincronizan solos.</p>
+          <p>La copia <b>.json</b> es un extra para archivar o migrar: solo se descarga cuando tú lo pides.</p>
         </div>
       </div>
       <div class="panel">
@@ -1216,7 +1243,7 @@ function construirInforme(d){
       if(!rt.running){ cambiarTarea(actual()); return; }
       var ms = lapMs(), a = A(), p = paso(actual());
       if(ms < 300){ toast("Toma demasiado corta"); return; }
-      a.tomas.push({pid:actual(), ms:ms, uds:udsDe(p), lote:1, ts:Date.now(), origen:"crono", ses:null,
+      a.tomas.push({pid:actual(), ms:ms, uds:udsDe(p), lote:1, ts:Date.now(), origen:"crono", ses:null, tid:nid("t"),
                     prev:{pid:actual(), ciclo:a.est.ciclo, lote:a.est.lote}});
       rt.lapAcc = 0; rt.lapTs = performance.now();
       marcarSucio(); beep(); render(); persist();
@@ -1237,7 +1264,7 @@ function construirInforme(d){
     if(ms < 120) return;
     var a = A(), pid = actual(), p = paso(pid);
     if(!p){ toast("Esta actividad no tiene pasos · defínelos en la pestaña Actividad"); return; }
-    a.tomas.push({pid:pid, ms:ms, uds:udsDe(p), lote:a.est.lote, ts:Date.now(), origen:"crono", ses:null,
+    a.tomas.push({pid:pid, ms:ms, uds:udsDe(p), lote:a.est.lote, ts:Date.now(), origen:"crono", ses:null, tid:nid("t"),
                   prev:{pid:pid, ciclo:a.est.ciclo, lote:a.est.lote}});
     rt.lapAcc = 0; rt.lapTs = performance.now();
     var s = siguiente(pid, a.est);
@@ -1283,7 +1310,7 @@ function construirInforme(d){
     if(ms >= 300){
       var ant = paso(actual());
       a.tomas.push({pid:actual(), ms:ms, uds:udsDe(ant || p), lote:1, ts:Date.now(),
-                    origen:"crono", ses:null,
+                    origen:"crono", ses:null, tid:nid("t"),
                     prev:{pid:actual(), ciclo:a.est.ciclo, lote:a.est.lote}});
       marcarSucio();
     }
@@ -1325,7 +1352,7 @@ function construirInforme(d){
       uds = def;
     }
     if(!(uds > 0)) uds = def;
-    a.tomas.unshift({pid:p.id, ms:seg*1000, uds:uds, lote:null, ts:null, origen:"hist"});
+    a.tomas.unshift({pid:p.id, ms:seg*1000, uds:uds, lote:null, ts:null, origen:"hist", tid:nid("t")});
     return true;
   }
   function importar(txt){
@@ -1710,6 +1737,23 @@ function construirInforme(d){
   }
   function limpio(t){ return String(t).replace(/[^0-9A-Za-zÁÉÍÓÚÑáéíóúñ]+/g, "_").replace(/^_|_$/g, "").slice(0, 40); }
 
+  // copia serializable de todo el estudio (sin los datos volatiles del cronometro en marcha)
+  function snapshot(){
+    return {
+      v:3, actual:DB.actual, cfg:DB.cfg,
+      acts:DB.acts.map(function(a){
+        var s = a.ses || {};
+        return {
+          id:a.id, modo:a.modo, nombre:a.nombre, area:a.area, unidad:a.unidad,
+          udsCiclo:a.udsCiclo, udsLote:a.udsLote,
+          pasos:a.pasos, tomas:a.tomas, sesiones:a.sesiones || [],
+          est:{pid:a.est ? a.est.pid : null, ciclo:a.est ? a.est.ciclo : 1, lote:a.est ? a.est.lote : 1},
+          ses:{run:false, acc:s.acc || 0, ts:0, ini:s.ini || null, uds:(s.uds === undefined ? null : s.uds)}
+        };
+      })
+    };
+  }
+
   function descargarInforme(){
     if(!A().tomas.length){ toast("No hay tomas todavía"); return; }
     try{
@@ -1752,11 +1796,167 @@ function construirInforme(d){
   function limpiar(o){
     return JSON.parse(JSON.stringify({cfg:o.cfg, actual:o.actual, acts:o.acts}));
   }
+  /* ================= GUARDADO EN LINEA (Supabase) ================= */
+  function nubeCfg(){
+    if(!DB.cfg.nube) DB.cfg.nube = {url:"", key:"", cod:"", auto:true, ult:null};
+    return DB.cfg.nube;
+  }
+  function nubeLista(){
+    var n = nubeCfg();
+    return !!(n.url && n.key && n.cod);
+  }
+  function nubeUrlBase(){
+    var u = String(nubeCfg().url || "").trim().replace(/\/+$/, "");
+    return u + "/rest/v1/estudios";
+  }
+  function nubeHead(extra){
+    var n = nubeCfg();
+    var hh = {"apikey":n.key, "Authorization":"Bearer " + n.key, "Content-Type":"application/json"};
+    if(extra) for(var k in extra) hh[k] = extra[k];
+    return hh;
+  }
+  function nubeEstado(txt, cls){
+    var e = $("nubeEstado");
+    if(e) e.textContent = txt;
+    if(cls === "err") toast(txt);
+  }
+  function leerNubeCampos(){
+    var n = nubeCfg();
+    n.url = $("fNubeUrl").value.trim();
+    n.key = $("fNubeKey").value.trim();
+    n.cod = $("fNubeCod").value.trim().toLowerCase().replace(/[^a-z0-9\-_]/g, "-");
+    n.auto = $("fNubeAuto").checked;
+    $("fNubeCod").value = n.cod;
+    persistYa();
+  }
+
+  // trae la fila del estudio; devuelve null si no existe
+  function bajarNube(){
+    var n = nubeCfg();
+    return fetch(nubeUrlBase() + "?id=eq." + encodeURIComponent(n.cod) + "&select=datos,actualizado",
+                 {headers:nubeHead()})
+      .then(function(r){
+        if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP " + r.status + " " + t.slice(0,120)); });
+        return r.json();
+      })
+      .then(function(rows){ return (rows && rows.length) ? rows[0] : null; });
+  }
+
+  function subirNube(silencioso){
+    if(!nubeLista()){ if(!silencioso) toast("Faltan datos de conexión"); return Promise.resolve(false); }
+    var n = nubeCfg();
+    var cuerpo = [{id:n.cod, datos:snapshot(), actualizado:new Date().toISOString()}];
+    nubeEstado("subiendo…");
+    return fetch(nubeUrlBase(), {
+        method:"POST",
+        headers:nubeHead({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+        body:JSON.stringify(cuerpo)
+      })
+      .then(function(r){
+        if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP " + r.status + " " + t.slice(0,140)); });
+        n.ult = new Date().toISOString();
+        var d = new Date();
+        nubeEstado("en la nube · " + dosDig(d.getHours()) + ":" + dosDig(d.getMinutes()));
+        persistYa();
+        if(!silencioso) toast("Datos subidos a la nube");
+        return true;
+      })
+      .catch(function(e){
+        nubeEstado("sin subir · error", "err");
+        if(!silencioso) toast("No se ha podido subir: " + e.message);
+        return false;
+      });
+  }
+
+  function traerNube(){
+    if(!nubeLista()){ toast("Faltan datos de conexión"); return; }
+    nubeEstado("bajando…");
+    bajarNube().then(function(fila){
+      if(!fila || !fila.datos){
+        nubeEstado("estudio vacío en la nube");
+        toast("Ese código todavía no tiene datos guardados. Pulsa 'Subir ahora' para crearlo.");
+        return;
+      }
+      var res = fusionar(fila.datos);
+      aplicarCfg(); render(); renderEditor(); persistYa();
+      nubeEstado("combinado con la nube");
+      toast("Traído de la nube · " + res.nuevas + " tomas nuevas, " + res.acts + " actividades");
+    }).catch(function(e){
+      nubeEstado("sin conexión", "err");
+      toast("No se ha podido traer: " + e.message);
+    });
+  }
+
+  // combina lo remoto con lo local sin perder nada
+  function fusionar(rem){
+    var res = {nuevas:0, acts:0};
+    if(!rem || !rem.acts) return res;
+    var idx = {};
+    DB.acts.forEach(function(a){ idx[a.id] = a; });
+    rem.acts.forEach(function(ra){
+      var la = idx[ra.id];
+      if(!la){
+        ra.ses = sesNueva();
+        DB.acts.push(ra); res.acts++; res.nuevas += (ra.tomas || []).length;
+        return;
+      }
+      // pasos: se queda la version con mas pasos si la local no tiene ninguno propio
+      if((!la.pasos || !la.pasos.length) && ra.pasos) la.pasos = ra.pasos;
+      var vistos = {};
+      la.tomas.forEach(function(t){ if(t.tid) vistos[t.tid] = 1; });
+      (ra.tomas || []).forEach(function(t){
+        if(t.tid && vistos[t.tid]) return;
+        if(!t.tid){                     // tomas antiguas sin identificador: evita duplicar por contenido
+          var dup = false;
+          la.tomas.forEach(function(x){ if(x.pid === t.pid && x.ms === t.ms && x.ts === t.ts) dup = true; });
+          if(dup) return;
+        }
+        la.tomas.push(t); res.nuevas++;
+      });
+      var vs = {};
+      (la.sesiones || []).forEach(function(s){ vs[s.id] = 1; });
+      (ra.sesiones || []).forEach(function(s){ if(!vs[s.id]) la.sesiones.push(s); });
+    });
+    return res;
+  }
+
+  function conectarNube(){
+    leerNubeCampos();
+    if(!nubeLista()){ toast("Rellena la URL, la clave y el código del estudio"); return; }
+    nubeEstado("comprobando…");
+    bajarNube().then(function(fila){
+      if(fila && fila.datos){
+        var n = 0; (fila.datos.acts || []).forEach(function(a){ n += (a.tomas || []).length; });
+        nubeEstado("conectado");
+        if(confirm("Conexión correcta. En la nube hay " + n + " tomas guardadas con ese código.\n\n¿Las combino con lo que tienes aquí?")){
+          traerNube();
+        }
+      }else{
+        nubeEstado("conectado · estudio nuevo");
+        toast("Conexión correcta. El estudio está vacío: se creará al subir.");
+        subirNube(false);
+      }
+    }).catch(function(e){
+      nubeEstado("error de conexión", "err");
+      alert("No se ha podido conectar.\n\n" + e.message +
+            "\n\nRevisa que la URL y la clave sean las del proyecto y que hayas creado la tabla 'estudios'.");
+    });
+  }
+
+  var tNube = null;
+  function nubeAuto(){
+    var n = nubeCfg();
+    if(!n.auto || !nubeLista()) return;
+    if(tNube) clearTimeout(tNube);
+    tNube = setTimeout(function(){ tNube = null; subirNube(true); }, 8000);
+  }
+
   var CLAVE = "estudio_tiempos_v3";
   function persistYa(){
     var txt;
-    try{ txt = JSON.stringify(limpio(DB)); }catch(e){ return; }
+    try{ txt = JSON.stringify(snapshot()); }catch(e){ return; }
     try{ if(window.localStorage) window.localStorage.setItem(CLAVE, txt); }catch(e){}
+    nubeAuto();
     try{ if(window.storage && window.storage.set) window.storage.set(CLAVE, txt); }catch(e){}
   }
   var pend = null;
@@ -1766,18 +1966,21 @@ function construirInforme(d){
   }
   function guardarTodo(){
     persistYa();
-    var n = 0;
-    DB.acts.forEach(function(a){ n += a.tomas.length; });
-    try{
-      bajar(new Blob([JSON.stringify(limpio(DB), null, 1)], {type:"application/json;charset=utf-8"}),
-            "COPIA_ESTUDIO_TIEMPOS_" + sello() + ".json");
-    }catch(e){}
+    var n = 0, ns = 0;
+    DB.acts.forEach(function(a){ n += a.tomas.length; ns += (a.sesiones || []).length; });
     sucio = false;
     var d = new Date();
     ultimoGuardado = dosDig(d.getHours()) + ":" + dosDig(d.getMinutes());
     renderSave();
-    var ns = 0; DB.acts.forEach(function(a){ ns += (a.sesiones || []).length; });
-    toast("Guardadas " + DB.acts.length + " actividades, " + ns + " sesiones y " + n + " tomas · copia descargada");
+    toast("Guardado: " + DB.acts.length + " actividades, " + ns + " sesiones y " + n + " tomas");
+    if(nubeLista()) subirNube(true);
+  }
+  function descargarCopia(){
+    try{
+      bajar(new Blob([JSON.stringify(snapshot(), null, 1)], {type:"application/json;charset=utf-8"}),
+            "COPIA_ESTUDIO_TIEMPOS_" + sello() + ".json");
+      toast("Copia .json descargada");
+    }catch(e){ toast("No se ha podido generar la copia"); }
   }
   function restaurar(file){
     var fr = new FileReader();
@@ -1803,6 +2006,18 @@ function construirInforme(d){
     };
     fr.readAsText(file);
   }
+  function renderNube(){
+    var n = nubeCfg();
+    if(!$("fNubeUrl")) return;
+    if(document.activeElement !== $("fNubeUrl")) $("fNubeUrl").value = n.url || "";
+    if(document.activeElement !== $("fNubeKey")) $("fNubeKey").value = n.key || "";
+    if(document.activeElement !== $("fNubeCod")) $("fNubeCod").value = n.cod || "";
+    $("fNubeAuto").checked = n.auto !== false;
+    if(!nubeLista()) nubeEstado("sin conectar");
+    $("nubeInfo").innerHTML = nubeLista()
+      ? 'Estudio <b>' + esc(n.cod) + '</b>. Abre esta misma web con el mismo código desde otro dispositivo y tendrás los mismos datos.'
+      : 'Conecta una base de datos gratuita de Supabase y tus actividades se guardarán en internet: podrás abrirlas desde cualquier ordenador o móvil.';
+  }
   function aplicarCfg(){
     $("fCoste").value = DB.cfg.costeHora;
     $("fSupl").value = Math.round(DB.cfg.suplementos*100);
@@ -1823,7 +2038,7 @@ function construirInforme(d){
       a.ses.ts = 0;
     });
     var n = 0; DB.acts.forEach(function(a){ n += a.tomas.length; });
-    aplicarCfg(); render();
+    aplicarCfg(); render(); renderNube();
     return n;
   }
   function restore(){
@@ -1913,6 +2128,17 @@ function construirInforme(d){
   $("btnCero").addEventListener("click", cero);
   $("btnSave").addEventListener("click", guardarTodo);
   $("btnSave2").addEventListener("click", guardarTodo);
+  $("btnDescargar").addEventListener("click", descargarCopia);
+  $("btnNubeConectar").addEventListener("click", conectarNube);
+  $("btnNubeSubir").addEventListener("click", function(){ leerNubeCampos(); subirNube(false); });
+  $("btnNubeBajar").addEventListener("click", function(){ leerNubeCampos(); traerNube(); });
+  ["fNubeUrl","fNubeKey","fNubeCod"].forEach(function(id){
+    $(id).addEventListener("change", leerNubeCampos);
+  });
+  $("fNubeAuto").addEventListener("change", function(){
+    nubeCfg().auto = this.checked; persistYa();
+    toast(this.checked ? "Subida automática activada" : "Subida automática desactivada");
+  });
   $("btnXlsx").addEventListener("click", descargarInforme);
   $("btnCopy").addEventListener("click", copiar);
   $("btnCsv").addEventListener("click", csv);
@@ -2080,6 +2306,20 @@ function construirInforme(d){
   aplicarCfg();
   render();
   restore();
+  renderNube();
+  if(nubeLista()){
+    setTimeout(function(){
+      nubeEstado("bajando…");
+      bajarNube().then(function(fila){
+        if(fila && fila.datos){
+          var r = fusionar(fila.datos);
+          aplicarCfg(); render(); renderNube(); persistYa();
+          nubeEstado("sincronizado");
+          if(r.nuevas) toast("Traídas " + r.nuevas + " tomas de la nube");
+        }else{ nubeEstado("conectado · estudio vacío"); }
+      }).catch(function(){ nubeEstado("sin conexión · trabajando en local"); });
+    }, 900);
+  }
   if(window.requestAnimationFrame) requestAnimationFrame(tick);
   setInterval(renderCorrido, 500);   // el reloj corrido no depende de la animacion
 })();
