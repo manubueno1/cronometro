@@ -416,7 +416,6 @@
           <p>Une aquí mediciones anteriores. Una línea por toma: paso, tiempo y unidades.</p>
           <textarea id="impTxt" rows="3" placeholder="2&#9;1,52&#9;2&#10;5&#9;18,43&#9;2"></textarea>
           <button class="btn" id="btnImp">Añadir estas tomas</button>
-          <button class="btn" id="btnImpPlantilla">Cargar mis 80 tomas de confección</button>
           <button class="btn" id="btnImpQuitar">Quitar las añadidas a mano</button>
           <button class="btn" id="btnReset" style="border-color:#D9A0A0;color:#9C2B2B">Borrar las tomas de esta actividad</button>
         </div>
@@ -426,26 +425,28 @@
         <div class="panel-h"><span>Guardado en línea</span><span id="nubeEstado">sin conectar</span></div>
         <div class="exp">
           <p id="nubeInfo">Conecta una base de datos gratuita de Supabase y tus actividades se guardarán en internet: podrás abrirlas desde cualquier ordenador o móvil.</p>
-          <div class="field">
-            <label for="fNubeUrl">URL del proyecto</label>
-            <input type="text" id="fNubeUrl" placeholder="https://xxxx.supabase.co" spellcheck="false">
-          </div>
-          <div class="field">
-            <label for="fNubeKey">Clave pública (anon)</label>
-            <input type="password" id="fNubeKey" placeholder="eyJhbGciOi…" spellcheck="false">
-          </div>
-          <div class="field">
-            <label for="fNubeCod">Código de tu estudio</label>
-            <input type="text" id="fNubeCod" placeholder="planta-madrid" spellcheck="false">
+          <div id="wrapNubeManual">
+            <div class="field">
+              <label for="fNubeUrl">URL del proyecto</label>
+              <input type="text" id="fNubeUrl" placeholder="https://xxxx.supabase.co" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="fNubeKey">Clave publicable</label>
+              <input type="password" id="fNubeKey" placeholder="sb_publishable_… o eyJ…" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="fNubeCod">Código de tu estudio</label>
+              <input type="text" id="fNubeCod" placeholder="planta-madrid" spellcheck="false">
+            </div>
+            <button class="btn btn-ses" id="btnNubeConectar">Conectar y comprobar</button>
           </div>
           <label class="check">
             <input type="checkbox" id="fNubeAuto" checked>
             <span>Subir los cambios automáticamente mientras mido.</span>
           </label>
-          <button class="btn btn-ses" id="btnNubeConectar">Conectar y comprobar</button>
           <button class="btn" id="btnNubeSubir">Subir ahora</button>
           <button class="btn" id="btnNubeBajar">Traer de la nube</button>
-          <p>El mismo código en otro dispositivo abre los mismos datos. Al traer, lo de la nube y lo de aquí se combinan sin perder tomas.</p>
+          <p>Al traer, lo de la nube y lo de aquí se combinan sin perder tomas. Se sincroniza solo cada minuto mientras no estés cronometrando.</p>
         </div>
       </div>
 
@@ -951,8 +952,27 @@ function construirInforme(d){
   ]);
 }
 
+/* ==========================================================================
+   CONFIGURACION DE LA NUBE  ·  RELLENA SOLO ESTAS TRES LINEAS
+   --------------------------------------------------------------------------
+   Pega aqui los datos de tu proyecto de Supabase y sube el archivo a GitHub.
+   A partir de ese momento, cualquiera que abra el enlace vera los mismos
+   datos sin escribir ninguna clave.
+
+   La clave publicable esta pensada para ir dentro de la pagina: no es
+   secreta. NO pongas nunca aqui la "Secret key" ni la "service_role".
+   ========================================================================== */
+var NUBE = {
+  url: "",                     // ej: "https://abcdefgh.supabase.co"
+  key: "",                     // ej: "sb_publishable_xxxxxxxx"
+  cod: "estudio-principal"     // nombre del cajon donde se guarda todo
+};
+/* ========================================================================== */
+
 (function(){
   "use strict";
+
+  var FIJA = (typeof NUBE === "object" && NUBE && NUBE.url && NUBE.key) ? NUBE : null;
 
   var $ = function(id){ return document.getElementById(id); };
   var GRUPOS = {inicio:"Inicio del lote", bucle:"En cada ciclo (bucle)", cierre:"Cierre del lote", libre:"Tarea suelta (runner)"};
@@ -969,22 +989,6 @@ function construirInforme(d){
     ["METER EN CAJA","cierre"],
     ["CERRAR CAJA","cierre"],
     ["DEJAR CAJA EN PALE","cierre"]
-  ];
-  var PLANTILLA = [
-    [10,3.83,30],[9,29.00,30],[8,55.55,30],[7,0.30,2],[7,0.94,2],[7,1.54,2],
-    [7,1.34,2],[6,29.92,2],[6,27.86,2],[6,22.00,2],[6,30.52,2],[5,19.09,2],
-    [5,18.00,2],[5,20.69,2],[5,20.00,2],[5,22.00,2],[5,18.43,2],[5,8.51,1],
-    [5,7.58,1],[4,19.00,2],[4,15.35,2],[4,16.00,2],[4,10.41,2],[3,7.73,2],
-    [3,5.51,2],[2,1.54,2],[2,1.00,2],[2,1.37,2],[2,1.26,2],[2,1.52,2],
-    [2,0.85,2],[1,10.70,30],[2,1.87,2],[3,6.46,2],[4,32.18,2],[5,16.32,2],
-    [6,26.04,2],[7,111.79,2],[2,1.56,2],[3,2.55,2],[4,16.65,2],[5,10.27,2],
-    [6,14.77,2],[7,2.51,2],[2,3.04,2],[3,2.56,2],[4,15.04,2],[5,13.20,2],
-    [6,32.29,2],[8,26.38,4],[9,24.00,4],[10,2.91,4],[1,48.23,4],[2,5.81,2],
-    [3,2.27,2],[4,10.25,2],[5,22.14,2],[6,20.32,2],[7,6.56,2],[2,0.72,2],
-    [3,14.52,2],[4,16.57,2],[5,12.05,2],[6,16.31,2],[7,0.88,2],[2,2.77,2],
-    [3,8.54,2],[4,9.37,2],[5,19.27,2],[6,24.55,2],[7,1.20,2],[2,1.35,2],
-    [3,7.56,2],[4,3.40,2],[5,20.74,2],[6,33.92,2],[7,0.66,2],[2,2.09,2],
-    [3,18.01,2],[4,2.71,2]
   ];
 
   var seq = 0;
@@ -1370,17 +1374,6 @@ function construirInforme(d){
           (ajustadas ? " · " + ajustadas + " de lote ajustadas" : "") +
           (mal ? " · " + mal + " líneas ignoradas" : ""));
     return ok;
-  }
-  function cargarPlantilla(){
-    if(A().pasos.length < 10){
-      toast("Esta actividad tiene menos de 10 pasos · cambia a Confección para cargarlas"); return;
-    }
-    var ya = A().tomas.filter(function(r){ return r.origen === "hist"; }).length;
-    if(ya && !confirm("Ya hay " + ya + " tomas añadidas a mano. ¿Añadimos igualmente las " + PLANTILLA.length + " anteriores?")) return;
-    ajustadas = 0;
-    PLANTILLA.forEach(function(t){ meter(t[0], t[1], t[2]); });
-    marcarSucio(); render(); persist();
-    toast("Cargadas " + PLANTILLA.length + " tomas anteriores" + (ajustadas ? " · " + ajustadas + " de lote ajustadas" : ""));
   }
   function quitarImportadas(){
     var a = A(), n = a.tomas.filter(function(r){ return r.origen === "hist"; }).length;
@@ -1799,6 +1792,11 @@ function construirInforme(d){
   /* ================= GUARDADO EN LINEA (Supabase) ================= */
   function nubeCfg(){
     if(!DB.cfg.nube) DB.cfg.nube = {url:"", key:"", cod:"", auto:true, ult:null};
+    if(FIJA){
+      DB.cfg.nube.url = FIJA.url;
+      DB.cfg.nube.key = FIJA.key;
+      if(!DB.cfg.nube.cod) DB.cfg.nube.cod = FIJA.cod || "estudio-principal";
+    }
     return DB.cfg.nube;
   }
   function nubeLista(){
@@ -1943,12 +1941,32 @@ function construirInforme(d){
     });
   }
 
+  var bajando = false;
+  function refrescarNube(){
+    var n = nubeCfg();
+    if(!nubeLista() || n.auto === false) return;
+    if(rt.running || bajando) return;            // no interrumpir una medicion en curso
+    if(document.hidden) return;
+    bajando = true;
+    bajarNube().then(function(fila){
+      bajando = false;
+      if(!fila || !fila.datos) return;
+      var r = fusionar(fila.datos);
+      if(r.nuevas || r.acts){
+        aplicarCfg(); render(); persistYa();
+        toast("Actualizado: " + r.nuevas + " tomas nuevas de otro dispositivo");
+      }
+      var d = new Date();
+      nubeEstado("al día · " + dosDig(d.getHours()) + ":" + dosDig(d.getMinutes()));
+    }).catch(function(){ bajando = false; nubeEstado("sin conexión · trabajando en local"); });
+  }
+
   var tNube = null;
   function nubeAuto(){
     var n = nubeCfg();
     if(!n.auto || !nubeLista()) return;
     if(tNube) clearTimeout(tNube);
-    tNube = setTimeout(function(){ tNube = null; subirNube(true); }, 8000);
+    tNube = setTimeout(function(){ tNube = null; subirNube(true); }, 4000);
   }
 
   var CLAVE = "estudio_tiempos_v3";
@@ -2009,6 +2027,14 @@ function construirInforme(d){
   function renderNube(){
     var n = nubeCfg();
     if(!$("fNubeUrl")) return;
+    if(FIJA){
+      $("wrapNubeManual").className = "oculto";
+      $("nubeInfo").innerHTML = 'Esta web guarda sola en internet, en el estudio <b>' + esc(n.cod) +
+        '</b>. Quien abra el enlace ve los mismos datos, sin escribir ninguna clave.';
+      $("fNubeAuto").checked = n.auto !== false;
+      return;
+    }
+    $("wrapNubeManual").className = "";
     if(document.activeElement !== $("fNubeUrl")) $("fNubeUrl").value = n.url || "";
     if(document.activeElement !== $("fNubeKey")) $("fNubeKey").value = n.key || "";
     if(document.activeElement !== $("fNubeCod")) $("fNubeCod").value = n.cod || "";
@@ -2129,7 +2155,7 @@ function construirInforme(d){
   $("btnSave").addEventListener("click", guardarTodo);
   $("btnSave2").addEventListener("click", guardarTodo);
   $("btnDescargar").addEventListener("click", descargarCopia);
-  $("btnNubeConectar").addEventListener("click", conectarNube);
+  if($("btnNubeConectar")) $("btnNubeConectar").addEventListener("click", conectarNube);
   $("btnNubeSubir").addEventListener("click", function(){ leerNubeCampos(); subirNube(false); });
   $("btnNubeBajar").addEventListener("click", function(){ leerNubeCampos(); traerNube(); });
   ["fNubeUrl","fNubeKey","fNubeCod"].forEach(function(id){
@@ -2155,7 +2181,6 @@ function construirInforme(d){
     if(!t.trim()){ toast("Pega antes las tomas en el recuadro"); return; }
     if(importar(t)) $("impTxt").value = "";
   });
-  $("btnImpPlantilla").addEventListener("click", cargarPlantilla);
   $("btnImpQuitar").addEventListener("click", quitarImportadas);
   $("btnReset").addEventListener("click", function(){
     var a = A();
@@ -2322,6 +2347,7 @@ function construirInforme(d){
   }
   if(window.requestAnimationFrame) requestAnimationFrame(tick);
   setInterval(renderCorrido, 500);   // el reloj corrido no depende de la animacion
+  setInterval(refrescarNube, 60000); // trae cada minuto lo que hayan cambiado otros
 })();
 
 </script>
